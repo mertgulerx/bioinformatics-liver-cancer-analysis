@@ -1,7 +1,9 @@
 # Languages
 
-- [Türkçe](#giriş)
-- [English](#introduction)
+- [Türkçe](#gen-i̇fadesi-veri-setleri-üzerinde-gen-analizleri-ve-makine-öğrenmesi-ile-hepatosellüler-karsinom-sınıflandırması
+)
+- [English](#gene-expression-analysis-and-machine-learningbased-classification-of-hepatocellular-carcinoma
+)
 
 
 # Gen İfadesi Veri Setleri Üzerinde Gen Analizleri ve Makine Öğrenmesi ile Hepatosellüler Karsinom Sınıflandırması
