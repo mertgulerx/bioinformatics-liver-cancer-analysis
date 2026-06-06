@@ -6,7 +6,7 @@
 )
 
 
-# Gen İfadesi Veri Setleri Üzerinde Gen Analizleri ve Makine Öğrenmesi ile Hepatosellüler Karsinom Sınıflandırması
+# Gen İfadesi Veri Setleri Üzerinde Gen Analizleri ve Makine Öğrenmesi ile Karaciğer Kanseri (Hepatosellüler Karsinom) Sınıflandırması
 
 <div align="center">
 
