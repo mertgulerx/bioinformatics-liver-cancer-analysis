@@ -1,3 +1,9 @@
+# Languages
+
+- [Türkçe](#giriş)
+- [English](#introduction)
+
+
 # Gen İfadesi Veri Setleri Üzerinde Gen Analizleri ve Makine Öğrenmesi ile Hepatosellüler Karsinom Sınıflandırması
 
 <div align="center">
