@@ -1,458 +1,11 @@
 # Languages
 
-- [Türkçe](#gen-i̇fadesi-veri-setleri-üzerinde-gen-analizleri-ve-makine-öğrenmesi-ile-hepatosellüler-karsinom-sınıflandırması
-)
-- [English](#gene-expression-analysis-and-machine-learningbased-classification-of-hepatocellular-carcinoma
-)
-
-
-# Gen İfadesi Veri Setleri Üzerinde Gen Analizleri ve Makine Öğrenmesi ile Karaciğer Kanseri (Hepatosellüler Karsinom) Sınıflandırması
-
-<div align="center">
-
-**BLM3810 Biyoenformatiğe Giriş — Dönem Projesi**
-
-Yıldız Teknik Üniversitesi · Bilgisayar Mühendisliği Bölümü
-
-Dr. S. Sevgi TURGUT ÖGME
-
-Haziran, 2026
-
-</div>
+- [English](#english)
+- [Türkçe](#turkce)
 
 ---
 
-## İçindekiler
-
-- [Giriş](#giriş)
-- [Veri Seti ve Ön İşleme](#veri-seti-ve-ön-işleme)
-- [Diferansiyel Gen İfadesi Analizi](#diferansiyel-gen-i̇fadesi-analizi)
-- [Survival Analizi ve Cox Modeli](#survival-analizi-ve-cox-modeli)
-- [WGCNA Analizi](#wgcna-analizi)
-- [GO Enrichment Analizi](#go-enrichment-analizi)
-- [Makine Öğrenmesi ile Sınıflandırma](#makine-öğrenmesi-ile-sınıflandırma)
-- [Sonuçlar](#sonuçlar)
-- [Kısaltmalar](#kısaltmalar)
-
----
-
-## Giriş
-
-Kanser, hücre büyümesinin kontrolden çıkması sonucu ortaya çıkan ve dünya genelinde önde gelen ölüm nedenlerinden biri olan bir hastalık grubudur. Kanser dokularında, normal dokulara göre birçok genin ifade düzeyinde belirgin değişiklikler görülebilir. Bazı genler aşırı aktive olurken, bazıları baskılanır. Bu farkların belirlenmesi, kanserle ilişkili genleri bulmak ve hastalığın tanı ya da seyri hakkında bilgi verebilecek çözümler geliştirmek açısından önemlidir.
-
-Bu projede, **Hepatosellüler Karsinom (HCC)** — karaciğer kanseri — hastalığına ait gen ifadesi verileri üzerinde temel biyoinformatik analizler uygulanmış ve elde edilen biyolojik bulgular makine öğrenmesi tabanlı bir sınıflandırma problemine dönüştürülmüştür.
-
-### Projenin Amacı
-
-Bu çalışmanın amacı, gen ifadesi veri setleri üzerinde diferansiyel gen ifadesi analizi, survival analizi, WGCNA ve GO enrichment analizleri uygulamak ve elde edilen sonuçları kullanarak tümör ile normal dokuyu ayırt edebilen makine öğrenmesi modelleri geliştirmektir. Proje iki aşamadan oluşmaktadır:
-
-- **Birinci aşama:** Veri seti seçimi, ön işleme, diferansiyel gen ifadesi analizi, survival analizi, WGCNA ve GO enrichment analizleri.
-- **İkinci aşama:** Farklı özellik seçimi/çıkarımı stratejileri kullanılarak makine öğrenmesi ile tümör/normal doku sınıflandırması.
-
-### Veri Seti Bilgileri
-
-Çalışmada kullanılan veri seti NCBI GEO veritabanından elde edilen **GSE76427** erişim numaralı hepatosellüler karsinom veri setidir.
-
-| Özellik | Değer |
-|---|---|
-| GEO Erişim Numarası | GSE76427 |
-| Hastalık | Hepatosellüler Karsinom (Karaciğer Kanseri) |
-| Organizma | Homo sapiens |
-| Toplam Örnek | 167 |
-| Tümör Dokusu | 115 primer HCC örneği |
-| Non-Tümör Dokusu | 52 komşu non-tümör karaciğer dokusu |
-| Sınıflandırma Etiketi | Tümör vs Non-Tümör |
-| Yaş Aralığı | 14–93 |
-| Cinsiyet | 93 Erkek / 22 Kadın (klinik metadata'ya sahip 115 tümör örneği için) |
-| Sağkalım Verisi | OS: 115 örnek, 23 ölüm olayı; RFS: 108 örnek, 48 tekrarlama olayı |
-
-Veri seti, tümör ve non-tümör olmak üzere iki karşılaştırılabilir sınıf içermesi, survival metadata bilgisine sahip olması ve kanser evresinin sınıflandırma etiketi olarak kullanılmaması nedeniyle proje gereksinimlerini karşılamaktadır.
-
----
-
-## Veri Seti ve Ön İşleme
-
-### Veri İndirme
-
-Veri seti, NCBI GEO veritabanından indirilmiştir. Analizde, GSE76427 veri setine ait normalize edilmemiş ham gen ifade verileri kullanılmıştır. Bu dosyada her prob için ifade değeri ve tespit güvenilirliğini gösteren Detection P-value bilgisi bulunmaktadır.
-
-Ham veri başlangıçta **47.322 prob** ve **167 örnekten** oluşmaktadır. Tüm ifade değerleri pozitif olduğu için veriye log2 dönüşümü uygulanabilmiştir.
-
-### Normalizasyon
-
-Ham verilere sırasıyla aşağıdaki adımlar uygulanmıştır:
-
-1. **Log2 dönüşümü:** Geniş aralığı sıkıştırmak ve dağılımı simetrikleştirmek için kullanılmıştır.
-2. **Quantile normalizasyon:** Örnekler arasındaki teknik farklılıkları azaltmak ve gen ifade değerlerini karşılaştırılabilir hale getirmek için uygulanmıştır.
-
-Normalizasyon öncesi ve sonrası örnek dağılımları aşağıdaki grafiklerle gösterilmiştir. Normalizasyon sonrası tüm örneklerin medyan ve dağılımları hizalanmıştır.
-
-<p align="center">
-  <img src="figures/boxplot_before_norm.png" width="49%" alt="Normalizasyon öncesi kutu grafiği"/>
-  <img src="figures/boxplot_after_norm.png" width="49%" alt="Normalizasyon sonrası kutu grafiği"/>
-</p>
-<p align="center"><em>Şekil 1: Normalizasyon öncesi (sol) ve sonrası (sağ) örnek bazlı kutu grafikleri</em></p>
-
-<p align="center">
-  <img src="figures/density_before_norm.png" width="49%" alt="Normalizasyon öncesi yoğunluk"/>
-  <img src="figures/density_after_norm.png" width="49%" alt="Normalizasyon sonrası yoğunluk"/>
-</p>
-<p align="center"><em>Şekil 2: Normalizasyon öncesi (sol) ve sonrası (sağ) örnek bazlı yoğunluk dağılımları</em></p>
-
-### Prob Filtreleme ve Gen Anotasyonu
-
-Normalizasyon sonrasında veri setindeki düşük kaliteli ve bilgi değeri düşük problar çıkarılmıştır. Bu işlem üç adımda gerçekleştirilmiştir:
-
-- **Detection p-value filtresi:** Örneklerin en az %10'unda güvenilir şekilde ölçülen problar tutulmuştur. Bu adım sonunda prob sayısı 47.322'den **27.050**'ye düşmüştür.
-- **Varyans filtresi:** İfade değerleri örnekler arasında çok az değişen problar analizden çıkarılmıştır. Bu amaçla en düşük %10'luk varyansa sahip problar elenmiş ve prob sayısı **24.345**'e düşmüştür.
-- **Gen anotasyonu:** Probe ID'leri, GSE76427 veri setinin platform bilgisi kullanılarak gen sembollerine dönüştürülmüştür. Aynı gene karşılık gelen birden fazla prob olduğunda, en yüksek varyansa sahip prob seçilmiştir.
-
-Bu adımlar sonucunda analiz için **14.323 benzersiz gen** elde edilmiştir.
-
-### Yüksek Varyanslı Gen (HVG) Seçimi
-
-Filtreleme ve anotasyon adımlarından sonra genler, örnekler arasındaki değişkenlik düzeylerine göre sıralanmıştır. En yüksek varyansa sahip **3000 gen** seçilerek HVG listesi oluşturulmuştur.
-
-Bu adımın amacı, örnekler arasında çok az değişen ve analizlere sınırlı katkı sağlayan genleri dışarıda bırakmaktır. Böylece PCA, WGCNA ve makine öğrenmesi analizlerinde daha bilgilendirici genlerle çalışılmıştır.
-
-### Keşifsel Veri Analizi
-
-HVG seçimi öncesi ve sonrası temel bileşen analizi (PCA) aşağıda verilmiştir. Sınıflara göre renklendirilmiş PCA grafiğinde tümör ve non-tümör örnekleri belirgin biçimde ayrışmaktadır. En yüksek varyansa sahip 20 gene ait ısı haritası iki doku tipinin ayrı kümeler oluşturduğunu göstermektedir.
-
-<p align="center">
-  <img src="figures/pca_colored_by_group.png" width="90%" alt="PCA gruplara göre"/>
-</p>
-<p align="center"><em>Şekil 3: Top-3000 HVG ile gruplara göre renklendirilmiş PCA grafiği</em></p>
-
-<p align="center">
-  <img src="figures/pca_before_after_hvg.png" width="85%" alt="PCA öncesi sonrası"/>
-</p>
-<p align="center"><em>Şekil 4: HVG seçimi öncesi (sol) ve sonrası (sağ) PCA dağılımları</em></p>
-
-<p align="center">
-  <img src="figures/heatmap_top20_hvg.png" width="90%" alt="Top 20 HVG ısı haritası"/>
-</p>
-<p align="center"><em>Şekil 5: En yüksek varyansa sahip 20 genin grup anotasyonlu ısı haritası</em></p>
-
----
-
-## Diferansiyel Gen İfadesi Analizi
-
-### Yöntem
-
-Diferansiyel gen ifadesi (DGE) analizi, prob filtreleme ve gen anotasyonu sonrası elde edilen 14.323 benzersiz gen üzerinde gerçekleştirilmiştir. HVG seçimi bu aşamada kullanılmamış, yalnızca PCA, WGCNA ve makine öğrenmesi analizleri için uygulanmıştır.
-
-Veri setinde bazı hastalara ait hem tümör hem de komşu non-tümör örnekleri bulunduğu için eşleşmiş örnek yapısı dikkate alınmıştır. Bu amaçla hasta kimliği modele eklenmiş ve tümör ile non-tümör dokular arasındaki gen ifade farkları karşılaştırılmıştır.
-
-Analizde `limma` paketi kullanılmıştır. Tümör ve non-tümör grupları için uygun tasarım matrisi tanımlanmıştır. Daha sonra model kurulmuş ve her gen için istatistiksel anlamlılık değerleri hesaplanmıştır.
-
-Anlamlı genler, düzeltilmiş p-değeri **0,05'ten küçük** ve mutlak logFC değeri **1'den büyük** olacak şekilde seçilmiştir. Bu eşikler, hem istatistiksel anlamlılığı hem de ifade değişiminin büyüklüğünü birlikte değerlendirmek için kullanılmıştır.
-
-### Sonuçlar
-
-Analiz sonucunda **705 genin** tümör ve non-tümör örnekleri arasında anlamlı düzeyde farklı ifade edildiği belirlenmiştir: **216 up-regulated** ve **489 down-regulated**. Down-regulated genlerin baskınlığı, HCC dokusunda hepatositlere özgü bazı normal karaciğer fonksiyonlarının azalmış olabileceğini düşündürmektedir.
-
-En güçlü diferansiyel ifadeli genler:
-
-| Gen | Yön | logFC | adj.P.Val |
-|---|---|---|---|
-| GPC3 | Up | +3,53 | 5,91×10⁻²⁰ |
-| AKR1B10 | Up | +3,06 | 6,28×10⁻¹³ |
-| SPINK1 | Up | +2,89 | 1,39×10⁻⁹ |
-| TOP2A | Up | +2,58 | 1,04×10⁻²⁸ |
-| ACSL4 | Up | +2,53 | 1,07×10⁻¹⁷ |
-| HAMP | Down | −5,00 | 2,08×10⁻²⁹ |
-| CYP1A2 | Down | −4,75 | 1,49×10⁻²⁵ |
-| FCN3 | Down | −4,64 | 2,11×10⁻³⁹ |
-| MT1H | Down | −4,21 | 3,29×10⁻²⁵ |
-| MT1G | Down | −4,04 | 4,16×10⁻²³ |
-
-### Görselleştirmeler
-
-<p align="center">
-  <img src="figures/volcano_plot.png" width="90%" alt="Volkan grafiği"/>
-</p>
-<p align="center"><em>Şekil 6: Diferansiyel gen ifadesi volkan grafiği (kırmızı: up, mavi: down)</em></p>
-
-<p align="center">
-  <img src="figures/boxplot_top5_with_stats.png" width="90%" alt="Top 5 DEG kutu grafikleri"/>
-</p>
-<p align="center"><em>Şekil 7: En güçlü 5 DEG için kutu grafikleri</em></p>
-
-<p align="center">
-  <img src="figures/violin_top5.png" width="90%" alt="Top 5 DEG keman grafikleri"/>
-</p>
-<p align="center"><em>Şekil 8: En güçlü 5 DEG için keman grafikleri</em></p>
-
-<p align="center">
-  <img src="figures/heatmap_deg.png" width="80%" alt="DEG ısı haritası"/>
-</p>
-<p align="center"><em>Şekil 9: En anlamlı diferansiyel ifadeli genlerin ısı haritası</em></p>
-
-### Biyolojik Yorum
-
-Down-regulated genler arasında **HAMP**, **CYP1A2**, **FCN3**, **MT1H** ve **MT1G** öne çıkmaktadır. Bu genler demir dengesi, ilaç metabolizması, bağışıklık yanıtı ve metal detoksifikasyonu gibi karaciğerin normal görevleriyle ilişkilidir. Bu nedenle tümör dokusunda bu genlerin daha düşük ifade göstermesi, normal karaciğer fonksiyonlarının azaldığını düşündürmektedir.
-
-Up-regulated genler arasında ise **GPC3**, **AKR1B10** ve **TOP2A** dikkat çekmektedir. Bu genler hücre çoğalması ve tümör gelişimiyle ilişkili süreçlerde rol oynayabilir. Özellikle GPC3'ün HCC tanısında bilinen bir gen belirteci olması, elde edilen DGE sonuçlarının biyolojik olarak tutarlı olduğunu göstermektedir.
-
----
-
-## Survival Analizi ve Cox Modeli
-
-### Yöntem
-
-Survival analizi yalnızca tümör örnekleri üzerinde yapılmıştır. Ana değerlendirme ölçütü genel sağkalım (OS) olarak seçilmiştir. Bu analizde 115 tümör örneği kullanılmış ve 23 ölüm olayı bulunmaktadır.
-
-DGE analizinden seçilen en güçlü 5 up-regulated ve 5 down-regulated gen olmak üzere toplam 10 gen incelenmiştir. Her gen için örnekler, gen ifade değerinin medyanına göre yüksek ifade ve düşük ifade gruplarına ayrılmıştır. Bu gruplar Kaplan-Meier eğrileri ve log-rank testi ile karşılaştırılmıştır.
-
-Ek olarak, gen ifade grubu, yaş ve cinsiyet değişkenleri kullanılarak Cox regresyon modeli kurulmuştur. Tekrarsız sağkalım (RFS) ikincil olarak değerlendirilmiş, ancak düzeltilmiş örnek eşleştirmesi sonrasında RFS için anlamlı bir gen bulunmamıştır.
-
-### Sonuçlar
-
-Kaplan-Meier log-rank test sonuçları aşağıda verilmiştir. Üç gen anlamlı bulunmuştur: **MT1G** (p = 0,006), **MT1H** (p = 0,023) ve **AKR1B10** (p = 0,039).
-
-| Gen | Yön | p-değeri |
-|---|---|---|
-| **MT1G** | Down | **0,006** |
-| **MT1H** | Down | **0,023** |
-| **AKR1B10** | Up | **0,039** |
-| FCN3 | Down | 0,087 |
-| GPC3 | Up | 0,633 |
-| SPINK1 | Up | 0,403 |
-| TOP2A | Up | 0,468 |
-| ACSL4 | Up | 0,474 |
-| CYP1A2 | Down | 0,460 |
-| HAMP | Down | 0,680 |
-
-<p align="center">
-  <img src="figures/km_MT1G.png" width="85%" alt="MT1G Kaplan-Meier"/>
-</p>
-<p align="center"><em>Şekil 10: MT1G geni için Kaplan-Meier genel sağkalım (OS) eğrisi</em></p>
-
-<p align="center">
-  <img src="figures/forest_MT1G.png" width="85%" alt="MT1G Cox forest plot"/>
-</p>
-<p align="center"><em>Şekil 11: MT1G geni için Cox regresyon forest plot grafiği</em></p>
-
-### Yorum
-
-Cox modelinde yüksek MT1G ifade grubunun ölüm riski daha yüksek bulunmuştur (HR = 3,35; %95 GA 1,34–8,41; p = 0,010). Benzer şekilde MT1H için de daha yüksek risk gözlenmiştir (HR = 2,65; p = 0,029). AKR1B10 ise koruyucu yönde bir eğilim göstermiştir, ancak bu sonuç sınırda anlamlıdır (HR = 0,41; p = 0,052).
-
-MT1G ve MT1H tümör dokusunda genel olarak daha düşük ifade edilen genlerdir. Buna rağmen, tümör örnekleri içinde bu genlerin daha yüksek ifade edilmesi sağkalım ile ilişkili bulunmuştur. Cox modeline yaş ve cinsiyet dahil edilmiş; olay sayısı düşük olduğu için BCLC evresi modele eklenmemiştir. Metadata'da sigara ve alkol bilgisi bulunmadığından bu değişkenler değerlendirilememiştir.
-
----
-
-## WGCNA Analizi
-
-### Yöntem
-
-WGCNA, benzer ifade örüntüsüne sahip genleri aynı gruplar altında toplayan bir ağ analizi yöntemidir. Bu analizde Top-3000 yüksek varyanslı gen kullanılmıştır.
-
-Ağ yapısını oluşturmak için önce genler arasındaki ilişki düzeyi hesaplanmıştır. Daha sonra ölçeksiz topolojiye uygunluğu sağlayan Soft Thresholding gücü **β = 5** olarak seçilmiştir. Bu değer kullanılarak genler arasındaki bağlantılar hesaplanmış ve benzer bağlantı yapısına sahip genler modüller halinde gruplandırılmıştır.
-
-<p align="center">
-  <img src="figures/soft_threshold.png" width="90%" alt="Soft threshold"/>
-</p>
-<p align="center"><em>Şekil 12: Soft Threshold güç seçimi: ölçeksiz topoloji uyumu ve ortalama bağlantısallık</em></p>
-
-### Modül Tespiti ve Modül-Trait İlişkisi
-
-Analiz sonucunda **6 gen modülü** belirlenmiştir. Daha sonra bu modüllerin tümör/non-tümör durumu ve klinik değişkenlerle ilişkisi incelenmiştir.
-
-Bu karşılaştırmada **brown modülü** 1636 gen içermekte ve tümör/non-tümör ayrımıyla en güçlü ilişkiyi göstermektedir. Bu nedenle sonraki hub gen ve GO analizlerinde brown modülü seçilmiştir.
-
-<p align="center">
-  <img src="figures/gene_dendrogram.png" width="90%" alt="Gen dendrogramı"/>
-</p>
-<p align="center"><em>Şekil 13: Gen dendrogramı ve modül renkleri</em></p>
-
-<p align="center">
-  <img src="figures/module_trait_heatmap.png" width="75%" alt="Modül-Trait ısı haritası"/>
-</p>
-<p align="center"><em>Şekil 14: Modül-Trait ilişki ısı haritası</em></p>
-
-### Hub Genler
-
-Hub genler, her modül içinde merkeze yakın ve tümör/non-tümör ayrımıyla güçlü ilişki gösteren genler arasından seçilmiştir. Bu seçimde modül üyeliği (kME) ve gen anlamlılığı (GS) değerleri dikkate alınmıştır.
-
-| Gen | kME | GS | Fonksiyon |
-|---|---|---|---|
-| GLYATL1 | 0,92 | 0,70 | Glisin konjugasyonu, karaciğer detoksifikasyonu |
-| TTC36 | 0,92 | 0,82 | p53 stabilizasyonu |
-| PEX11G | 0,90 | 0,69 | Peroksizomal bölünme, lipid metabolizması |
-| AADAT | 0,90 | 0,80 | Kinürenin yolağı, amino asit metabolizması |
-| NAT2 | 0,89 | 0,77 | N-asetiltransferaz, ilaç metabolizması |
-
-<p align="center">
-  <img src="figures/mm_vs_gs_brown.png" width="85%" alt="MM vs GS brown"/>
-</p>
-<p align="center"><em>Şekil 15: Brown modülü için Module Membership (MM) – Gene Significance (GS) dağılımı</em></p>
-
-<p align="center">
-  <img src="figures/network_brown_module.png" width="90%" alt="Brown modülü ağı"/>
-</p>
-<p align="center"><em>Şekil 16: Brown modülü hub gen merkezli co-expression ağı</em></p>
-
----
-
-## GO Enrichment Analizi
-
-### Yöntem
-
-Brown modülünde yer alan 1636 gen için GO enrichment analizi yapılmıştır. Bu analizde, genlerin hangi biyolojik süreçlerle daha fazla ilişkili olduğunu belirlemek amaçlanmıştır.
-
-Analiz sonucunda elde edilen p-değerleri Benjamini-Hochberg yöntemi ile düzeltilmiş ve anlamlı GO terimleri belirlenmiştir.
-
-### Sonuçlar
-
-Brown modülü için **752 anlamlı Biyolojik Süreç terimi** tespit edilmiştir. En anlamlı terimler:
-
-| GO Terimi | p.adjust | Gen Sayısı |
-|---|---|---|
-| Small molecule catabolic process | 3,85×10⁻⁵⁴ | 138 |
-| Organic acid catabolic process | 8,60×10⁻⁵⁰ | 108 |
-| Carboxylic acid catabolic process | 8,60×10⁻⁵⁰ | 108 |
-| Alpha-amino acid metabolic process | 4,60×10⁻³⁶ | 84 |
-| Organic acid biosynthetic process | 8,77×10⁻³⁶ | 108 |
-| Amino acid metabolic process | 4,44×10⁻³² | 95 |
-| Fatty acid metabolic process | 7,55×10⁻³⁰ | 110 |
-
-<p align="center">
-  <img src="figures/go_barplot.png" width="90%" alt="GO bar grafiği"/>
-</p>
-<p align="center"><em>Şekil 17: GO Biyolojik Süreç bar grafiği</em></p>
-
-<p align="center">
-  <img src="figures/go_dotplot.png" width="90%" alt="GO nokta grafiği"/>
-</p>
-<p align="center"><em>Şekil 18: GO Biyolojik Süreç nokta grafiği</em></p>
-
-### Biyolojik Yorum
-
-En anlamlı GO terimleri küçük molekül yıkımı, amino asit metabolizması ve yağ asidi metabolizması ile ilişkilidir. Bu süreçler karaciğerin temel görevleri arasında yer almaktadır.
-
-Brown modülünün tümör örnekleriyle negatif ilişki göstermesi, HCC dokusunda normal karaciğer metabolizmasıyla ilişkili genlerin daha düşük ifade edildiğini düşündürmektedir. Bu sonuç, tümör dokusunda metabolik kapasitenin azalabileceği yorumunu desteklemektedir.
-
----
-
-## Makine Öğrenmesi ile Sınıflandırma
-
-### Özellik Seçimi/Çıkarımı Setup'ları
-
-Tümör/non-tümör sınıflandırması için üç farklı özellik stratejisi karşılaştırılmıştır:
-
-| Özellik Seti | Özellik Sayısı | Yöntem |
-|---|---|---|
-| Biyolojik | 742 gen | DGE sonucunda bulunan anlamlı genler ve WGCNA hub genleri |
-| İstatistiksel | 446 gen | Yüksek varyanslı ve birbirine çok benzemeyen genler |
-| PCA | 35 bileşen | Gen ifade verilerinin PCA ile özetlenmiş hali (%80 varyans) |
-
-### Modeller ve Değerlendirme
-
-Üç farklı eğiticili makine öğrenmesi modeli kullanılmıştır: **SVM**, **Random Forest** ve **XGBoost**. Modeller, çapraz doğrulama ile değerlendirilmiştir. Bu yöntemde aynı hastaya ait tümör ve non-tümör örnekleri aynı katta tutulmuş, böylece aynı hastadan gelen örneklerin hem eğitim hem test verisine düşmesi engellenmiştir.
-
-Sınıflandırmada pozitif sınıf Tümör olarak belirlenmiştir. PCA kullanılan Setup-3'te, boyut indirgeme işlemi her çapraz doğrulama katında yalnızca eğitim verisi üzerinde öğrenilmiştir. Böylece test verisinden modele bilgi sızması önlenmiştir.
-
-### Sonuçlar
-
-Tüm modeller **%93 üzeri accuracy** ve **0,95 üzeri AUC** değeri elde etmiştir.
-
-| Özellik Seti | Model | Acc | Prec | Recall | F1 | AUC |
-|---|---|---|---|---|---|---|
-| Biyolojik | SVM | 0,946 | 0,965 | 0,957 | 0,961 | 0,975 |
-| Biyolojik | Random Forest | **0,958** | 0,974 | 0,965 | 0,969 | 0,980 |
-| Biyolojik | XGBoost | 0,952 | 0,965 | 0,965 | 0,965 | 0,973 |
-| İstatistiksel | SVM | 0,946 | 0,965 | 0,957 | 0,961 | 0,962 |
-| İstatistiksel | Random Forest | **0,958** | 0,966 | **0,974** | **0,970** | **0,981** |
-| İstatistiksel | XGBoost | 0,946 | 0,957 | 0,965 | 0,961 | 0,968 |
-| PCA | SVM | **0,958** | **0,982** | 0,957 | 0,969 | 0,967 |
-| PCA | Random Forest | 0,934 | 0,956 | 0,948 | 0,952 | 0,973 |
-| PCA | XGBoost | 0,934 | 0,956 | 0,948 | 0,952 | 0,959 |
-
-### ROC Eğrileri
-
-<p align="center">
-  <img src="figures/roc_curves_Setup1_Biological.png" width="80%" alt="Biyolojik ROC"/>
-</p>
-<p align="center"><em>Şekil 19: Biyolojik özellik seti ROC eğrileri</em></p>
-
-<p align="center">
-  <img src="figures/roc_curves_Setup2_Statistical.png" width="80%" alt="İstatistiksel ROC"/>
-</p>
-<p align="center"><em>Şekil 20: İstatistiksel özellik seti ROC eğrileri</em></p>
-
-<p align="center">
-  <img src="figures/roc_curves_Setup3_PCA.png" width="80%" alt="PCA ROC"/>
-</p>
-<p align="center"><em>Şekil 21: PCA özellik seti ROC eğrileri</em></p>
-
-### Karışıklık Matrisleri
-
-<p align="center">
-  <img src="figures/confusion_matrix_Setup1_Biological_RF.png" width="32%" alt="Biyolojik RF CM"/>
-  <img src="figures/confusion_matrix_Setup2_Statistical_RF.png" width="32%" alt="İstatistiksel RF CM"/>
-  <img src="figures/confusion_matrix_Setup3_PCA_RF.png" width="32%" alt="PCA RF CM"/>
-</p>
-<p align="center"><em>Şekil 22: Random Forest karışıklık matrisleri (sırasıyla Biyolojik, İstatistiksel, PCA)</em></p>
-
-### Karşılaştırma ve Yorum
-
-Biyolojik ve istatistiksel özellik setleri benzer performans göstermiştir. Bu sonuç, DGE ve WGCNA analizleriyle seçilen genlerin tümör/non-tümör ayrımında yararlı bilgiler taşıdığını göstermektedir. PCA tabanlı özellik seti de daha az sayıda bileşen kullanmasına rağmen başarılı sonuçlar vermiştir.
-
-Modeller arasında Random Forest, tüm özellik setlerinde yüksek ve tutarlı AUC değerleri elde etmiştir. En yüksek AUC değeri, istatistiksel özellik seti ile Random Forest modelinde elde edilmiştir (**AUC = 0,981**).
-
-Değerlendirmede hasta-bazlı çapraz doğrulama kullanıldığı için aynı hastaya ait örneklerin hem eğitim hem test kümesine düşmesi engellenmiştir. Ayrıca PCA kullanılan özellik setinde boyut indirgeme işlemi her fold içinde yalnızca eğitim verisi üzerinde yapılmıştır. Bununla birlikte, biyolojik ve istatistiksel gen listeleri tüm veri seti üzerinde belirlendiği için bu iki özellik seti keşifsel karşılaştırma olarak değerlendirilmelidir.
-
----
-
-## Sonuçlar
-
-Bu projede GSE76427 hepatosellüler karsinom veri seti üzerinde gen ifadesi analizi, survival analizi, WGCNA, GO enrichment analizi ve makine öğrenmesi tabanlı sınıflandırma uygulanmıştır. Çalışmada tümör ve non-tümör dokular arasındaki gen ifade farklılıkları incelenmiş, bu farklılıkların biyolojik anlamı değerlendirilmiş ve elde edilen gen listelerinin sınıflandırma başarısına katkısı karşılaştırılmıştır.
-
-1. **Diferansiyel gen ifadesi analizi**, prob filtreleme ve gen anotasyonu sonrası elde edilen 14.323 benzersiz gen üzerinde gerçekleştirilmiştir. Tümör ve non-tümör dokular arasında 705 gen anlamlı düzeyde farklı ifade göstermiştir. Bu genlerin 216'sı tümör dokusunda daha yüksek, 489'u ise daha düşük ifade edilmiştir.
-
-2. **DGE sonuçlarında** GPC3, AKR1B10, SPINK1, TOP2A ve ACSL4 tümör dokusunda daha yüksek ifade edilen genler arasında öne çıkmıştır. HAMP, CYP1A2, FCN3, MT1H ve MT1G ise tümör dokusunda daha düşük ifade göstermiştir. Bu sonuçlar, HCC dokusunda bazı tümörle ilişkili genlerin arttığını, buna karşılık normal karaciğer fonksiyonlarıyla ilişkili bazı genlerin azaldığını göstermektedir.
-
-3. **Survival analizinde** genel sağkalım temel alınmıştır. İncelenen genler arasında MT1G, MT1H ve AKR1B10 Kaplan-Meier analizinde anlamlı sonuçlar göstermiştir. Cox modelinde özellikle yüksek MT1G ifadesi daha yüksek ölüm riskiyle ilişkili bulunmuştur. Bu sonuç, bazı genlerin yalnızca tümör/non-tümör ayrımında değil, tümör örnekleri içinde survival ile ilişkili olabileceğini göstermektedir.
-
-4. **WGCNA analizi** ile 6 gen modülü belirlenmiştir. Brown modülü, tümör/non-tümör ayrımıyla en güçlü ilişki gösteren modül olarak seçilmiştir. Bu modülde yer alan hub genler, modülü temsil etme gücü ve tümör/non-tümör ayrımıyla ilişkisi dikkate alınarak belirlenmiştir.
-
-5. **GO enrichment analizi**, brown modülündeki genlerin özellikle küçük molekül metabolizması, amino asit metabolizması ve yağ asidi metabolizması gibi karaciğerin temel görevleriyle ilişkili süreçlerde yoğunlaştığını göstermiştir. Bu bulgu, tümör dokusunda normal karaciğer metabolizmasıyla ilişkili genlerin baskılanabileceği yorumunu desteklemektedir.
-
-6. **Makine öğrenmesi aşamasında** üç farklı özellik seti ve üç farklı model karşılaştırılmıştır. Modeller genel olarak yüksek başarı göstermiştir. En yüksek AUC değeri, istatistiksel özellik seti ile Random Forest modelinde elde edilmiştir.
-
-Genel olarak sonuçlar, HCC tümör dokusunun gen ifade profili bakımından non-tümör dokudan belirgin şekilde ayrıldığını göstermektedir. Tümör dokusunda normal karaciğer metabolizmasıyla ilişkili bazı genlerin daha düşük, tümör gelişimiyle ilişkili bazı genlerin ise daha yüksek ifade edildiği görülmüştür. Bu ifade değişimleri hem biyolojik analizlerde anlamlı örüntüler oluşturmuş hem de makine öğrenmesi modelleriyle tümör/non-tümör ayrımının başarılı şekilde yapılmasını sağlamıştır.
-
----
-
-## Kısaltmalar
-
-| Kısaltma | Açıklama |
-|---|---|
-| AUC | Area Under the Curve (ROC Eğrisi Altındaki Alan) |
-| Cox | Cox Orantılı Hazardlar Modeli |
-| DGE | Differential Gene Expression (Diferansiyel Gen İfadesi) |
-| GEO | Gene Expression Omnibus |
-| GO | Gene Ontology |
-| GS | Gene Significance (Gen Anlamlılığı) |
-| HCC | Hepatocellular Carcinoma (Hepatosellüler Karsinom) |
-| HVG | Highly Variable Genes (Yüksek Varyanslı Genler) |
-| kME | Module Membership (Modül Üyeliği) |
-| logFC | Log2 Fold Change |
-| OS | Overall Survival (Genel Sağkalım) |
-| PCA | Principal Component Analysis (Temel Bileşen Analizi) |
-| RFS | Recurrence-Free Survival (Nükssüz Sağkalım) |
-| ROC | Receiver Operating Characteristic |
-| SVM | Support Vector Machine (Destek Vektör Makinesi) |
-| WGCNA | Weighted Gene Co-expression Network Analysis |
-
----
-
-<br>
-
-# English Version
-
----
+<a id="english"></a>
 
 # Gene Expression Analysis and Machine Learning–Based Classification of Hepatocellular Carcinoma
 
@@ -476,8 +29,8 @@ June, 2026
 - [Dataset and Preprocessing](#dataset-and-preprocessing)
 - [Differential Gene Expression Analysis](#differential-gene-expression-analysis)
 - [Survival Analysis and Cox Model](#survival-analysis-and-cox-model)
-- [WGCNA Analysis](#wgcna-analysis-1)
-- [GO Enrichment Analysis](#go-enrichment-analysis-1)
+- [WGCNA Analysis](#wgcna-analysis)
+- [GO Enrichment Analysis](#go-enrichment-analysis)
 - [Machine Learning Classification](#machine-learning-classification)
 - [Conclusions](#conclusions)
 - [Abbreviations](#abbreviations)
@@ -895,3 +448,406 @@ Overall, the results demonstrate that HCC tumor tissue is distinctly separated f
 | ROC | Receiver Operating Characteristic |
 | SVM | Support Vector Machine |
 | WGCNA | Weighted Gene Co-expression Network Analysis |
+
+---
+
+<br>
+
+<a id="turkce"></a>
+
+# Gen İfadesi Veri Setleri Üzerinde Gen Analizleri ve Makine Öğrenmesi ile Karaciğer Kanseri (Hepatosellüler Karsinom) Sınıflandırması
+
+<div align="center">
+
+**BLM3810 Biyoenformatiğe Giriş — Dönem Projesi**
+
+Yıldız Teknik Üniversitesi · Bilgisayar Mühendisliği Bölümü
+
+Dr. S. Sevgi TURGUT ÖGME
+
+Haziran, 2026
+
+</div>
+
+---
+
+## İçindekiler
+
+- [Giriş](#giriş)
+- [Veri Seti ve Ön İşleme](#veri-seti-ve-ön-işleme)
+- [Diferansiyel Gen İfadesi Analizi](#diferansiyel-gen-i̇fadesi-analizi)
+- [Survival Analizi ve Cox Modeli](#survival-analizi-ve-cox-modeli)
+- [WGCNA Analizi](#wgcna-analizi)
+- [GO Enrichment Analizi](#go-enrichment-analizi)
+- [Makine Öğrenmesi ile Sınıflandırma](#makine-öğrenmesi-ile-sınıflandırma)
+- [Sonuçlar](#sonuçlar)
+- [Kısaltmalar](#kısaltmalar)
+
+---
+
+## Giriş
+
+Kanser, hücre büyümesinin kontrolden çıkması sonucu ortaya çıkan ve dünya genelinde önde gelen ölüm nedenlerinden biri olan bir hastalık grubudur. Kanser dokularında, normal dokulara göre birçok genin ifade düzeyinde belirgin değişiklikler görülebilir. Bazı genler aşırı aktive olurken, bazıları baskılanır. Bu farkların belirlenmesi, kanserle ilişkili genleri bulmak ve hastalığın tanı ya da seyri hakkında bilgi verebilecek çözümler geliştirmek açısından önemlidir.
+
+Bu projede, **Hepatosellüler Karsinom (HCC)** — karaciğer kanseri — hastalığına ait gen ifadesi verileri üzerinde temel biyoinformatik analizler uygulanmış ve elde edilen biyolojik bulgular makine öğrenmesi tabanlı bir sınıflandırma problemine dönüştürülmüştür.
+
+### Projenin Amacı
+
+Bu çalışmanın amacı, gen ifadesi veri setleri üzerinde diferansiyel gen ifadesi analizi, survival analizi, WGCNA ve GO enrichment analizleri uygulamak ve elde edilen sonuçları kullanarak tümör ile normal dokuyu ayırt edebilen makine öğrenmesi modelleri geliştirmektir. Proje iki aşamadan oluşmaktadır:
+
+- **Birinci aşama:** Veri seti seçimi, ön işleme, diferansiyel gen ifadesi analizi, survival analizi, WGCNA ve GO enrichment analizleri.
+- **İkinci aşama:** Farklı özellik seçimi/çıkarımı stratejileri kullanılarak makine öğrenmesi ile tümör/normal doku sınıflandırması.
+
+### Veri Seti Bilgileri
+
+Çalışmada kullanılan veri seti NCBI GEO veritabanından elde edilen **GSE76427** erişim numaralı hepatosellüler karsinom veri setidir.
+
+| Özellik | Değer |
+|---|---|
+| GEO Erişim Numarası | GSE76427 |
+| Hastalık | Hepatosellüler Karsinom (Karaciğer Kanseri) |
+| Organizma | Homo sapiens |
+| Toplam Örnek | 167 |
+| Tümör Dokusu | 115 primer HCC örneği |
+| Non-Tümör Dokusu | 52 komşu non-tümör karaciğer dokusu |
+| Sınıflandırma Etiketi | Tümör vs Non-Tümör |
+| Yaş Aralığı | 14–93 |
+| Cinsiyet | 93 Erkek / 22 Kadın (klinik metadata'ya sahip 115 tümör örneği için) |
+| Sağkalım Verisi | OS: 115 örnek, 23 ölüm olayı; RFS: 108 örnek, 48 tekrarlama olayı |
+
+Veri seti, tümör ve non-tümör olmak üzere iki karşılaştırılabilir sınıf içermesi, survival metadata bilgisine sahip olması ve kanser evresinin sınıflandırma etiketi olarak kullanılmaması nedeniyle proje gereksinimlerini karşılamaktadır.
+
+---
+
+## Veri Seti ve Ön İşleme
+
+### Veri İndirme
+
+Veri seti, NCBI GEO veritabanından indirilmiştir. Analizde, GSE76427 veri setine ait normalize edilmemiş ham gen ifade verileri kullanılmıştır. Bu dosyada her prob için ifade değeri ve tespit güvenilirliğini gösteren Detection P-value bilgisi bulunmaktadır.
+
+Ham veri başlangıçta **47.322 prob** ve **167 örnekten** oluşmaktadır. Tüm ifade değerleri pozitif olduğu için veriye log2 dönüşümü uygulanabilmiştir.
+
+### Normalizasyon
+
+Ham verilere sırasıyla aşağıdaki adımlar uygulanmıştır:
+
+1. **Log2 dönüşümü:** Geniş aralığı sıkıştırmak ve dağılımı simetrikleştirmek için kullanılmıştır.
+2. **Quantile normalizasyon:** Örnekler arasındaki teknik farklılıkları azaltmak ve gen ifade değerlerini karşılaştırılabilir hale getirmek için uygulanmıştır.
+
+Normalizasyon öncesi ve sonrası örnek dağılımları aşağıdaki grafiklerle gösterilmiştir. Normalizasyon sonrası tüm örneklerin medyan ve dağılımları hizalanmıştır.
+
+<p align="center">
+  <img src="figures/boxplot_before_norm.png" width="49%" alt="Normalizasyon öncesi kutu grafiği"/>
+  <img src="figures/boxplot_after_norm.png" width="49%" alt="Normalizasyon sonrası kutu grafiği"/>
+</p>
+<p align="center"><em>Şekil 1: Normalizasyon öncesi (sol) ve sonrası (sağ) örnek bazlı kutu grafikleri</em></p>
+
+<p align="center">
+  <img src="figures/density_before_norm.png" width="49%" alt="Normalizasyon öncesi yoğunluk"/>
+  <img src="figures/density_after_norm.png" width="49%" alt="Normalizasyon sonrası yoğunluk"/>
+</p>
+<p align="center"><em>Şekil 2: Normalizasyon öncesi (sol) ve sonrası (sağ) örnek bazlı yoğunluk dağılımları</em></p>
+
+### Prob Filtreleme ve Gen Anotasyonu
+
+Normalizasyon sonrasında veri setindeki düşük kaliteli ve bilgi değeri düşük problar çıkarılmıştır. Bu işlem üç adımda gerçekleştirilmiştir:
+
+- **Detection p-value filtresi:** Örneklerin en az %10'unda güvenilir şekilde ölçülen problar tutulmuştur. Bu adım sonunda prob sayısı 47.322'den **27.050**'ye düşmüştür.
+- **Varyans filtresi:** İfade değerleri örnekler arasında çok az değişen problar analizden çıkarılmıştır. Bu amaçla en düşük %10'luk varyansa sahip problar elenmiş ve prob sayısı **24.345**'e düşmüştür.
+- **Gen anotasyonu:** Probe ID'leri, GSE76427 veri setinin platform bilgisi kullanılarak gen sembollerine dönüştürülmüştür. Aynı gene karşılık gelen birden fazla prob olduğunda, en yüksek varyansa sahip prob seçilmiştir.
+
+Bu adımlar sonucunda analiz için **14.323 benzersiz gen** elde edilmiştir.
+
+### Yüksek Varyanslı Gen (HVG) Seçimi
+
+Filtreleme ve anotasyon adımlarından sonra genler, örnekler arasındaki değişkenlik düzeylerine göre sıralanmıştır. En yüksek varyansa sahip **3000 gen** seçilerek HVG listesi oluşturulmuştur.
+
+Bu adımın amacı, örnekler arasında çok az değişen ve analizlere sınırlı katkı sağlayan genleri dışarıda bırakmaktır. Böylece PCA, WGCNA ve makine öğrenmesi analizlerinde daha bilgilendirici genlerle çalışılmıştır.
+
+### Keşifsel Veri Analizi
+
+HVG seçimi öncesi ve sonrası temel bileşen analizi (PCA) aşağıda verilmiştir. Sınıflara göre renklendirilmiş PCA grafiğinde tümör ve non-tümör örnekleri belirgin biçimde ayrışmaktadır. En yüksek varyansa sahip 20 gene ait ısı haritası iki doku tipinin ayrı kümeler oluşturduğunu göstermektedir.
+
+<p align="center">
+  <img src="figures/pca_colored_by_group.png" width="90%" alt="PCA gruplara göre"/>
+</p>
+<p align="center"><em>Şekil 3: Top-3000 HVG ile gruplara göre renklendirilmiş PCA grafiği</em></p>
+
+<p align="center">
+  <img src="figures/pca_before_after_hvg.png" width="85%" alt="PCA öncesi sonrası"/>
+</p>
+<p align="center"><em>Şekil 4: HVG seçimi öncesi (sol) ve sonrası (sağ) PCA dağılımları</em></p>
+
+<p align="center">
+  <img src="figures/heatmap_top20_hvg.png" width="90%" alt="Top 20 HVG ısı haritası"/>
+</p>
+<p align="center"><em>Şekil 5: En yüksek varyansa sahip 20 genin grup anotasyonlu ısı haritası</em></p>
+
+---
+
+## Diferansiyel Gen İfadesi Analizi
+
+### Yöntem
+
+Diferansiyel gen ifadesi (DGE) analizi, prob filtreleme ve gen anotasyonu sonrası elde edilen 14.323 benzersiz gen üzerinde gerçekleştirilmiştir. HVG seçimi bu aşamada kullanılmamış, yalnızca PCA, WGCNA ve makine öğrenmesi analizleri için uygulanmıştır.
+
+Veri setinde bazı hastalara ait hem tümör hem de komşu non-tümör örnekleri bulunduğu için eşleşmiş örnek yapısı dikkate alınmıştır. Bu amaçla hasta kimliği modele eklenmiş ve tümör ile non-tümör dokular arasındaki gen ifade farkları karşılaştırılmıştır.
+
+Analizde `limma` paketi kullanılmıştır. Tümör ve non-tümör grupları için uygun tasarım matrisi tanımlanmıştır. Daha sonra model kurulmuş ve her gen için istatistiksel anlamlılık değerleri hesaplanmıştır.
+
+Anlamlı genler, düzeltilmiş p-değeri **0,05'ten küçük** ve mutlak logFC değeri **1'den büyük** olacak şekilde seçilmiştir. Bu eşikler, hem istatistiksel anlamlılığı hem de ifade değişiminin büyüklüğünü birlikte değerlendirmek için kullanılmıştır.
+
+### Sonuçlar
+
+Analiz sonucunda **705 genin** tümör ve non-tümör örnekleri arasında anlamlı düzeyde farklı ifade edildiği belirlenmiştir: **216 up-regulated** ve **489 down-regulated**. Down-regulated genlerin baskınlığı, HCC dokusunda hepatositlere özgü bazı normal karaciğer fonksiyonlarının azalmış olabileceğini düşündürmektedir.
+
+En güçlü diferansiyel ifadeli genler:
+
+| Gen | Yön | logFC | adj.P.Val |
+|---|---|---|---|
+| GPC3 | Up | +3,53 | 5,91×10⁻²⁰ |
+| AKR1B10 | Up | +3,06 | 6,28×10⁻¹³ |
+| SPINK1 | Up | +2,89 | 1,39×10⁻⁹ |
+| TOP2A | Up | +2,58 | 1,04×10⁻²⁸ |
+| ACSL4 | Up | +2,53 | 1,07×10⁻¹⁷ |
+| HAMP | Down | −5,00 | 2,08×10⁻²⁹ |
+| CYP1A2 | Down | −4,75 | 1,49×10⁻²⁵ |
+| FCN3 | Down | −4,64 | 2,11×10⁻³⁹ |
+| MT1H | Down | −4,21 | 3,29×10⁻²⁵ |
+| MT1G | Down | −4,04 | 4,16×10⁻²³ |
+
+### Görselleştirmeler
+
+<p align="center">
+  <img src="figures/volcano_plot.png" width="90%" alt="Volkan grafiği"/>
+</p>
+<p align="center"><em>Şekil 6: Diferansiyel gen ifadesi volkan grafiği (kırmızı: up, mavi: down)</em></p>
+
+<p align="center">
+  <img src="figures/boxplot_top5_with_stats.png" width="90%" alt="Top 5 DEG kutu grafikleri"/>
+</p>
+<p align="center"><em>Şekil 7: En güçlü 5 DEG için kutu grafikleri</em></p>
+
+<p align="center">
+  <img src="figures/violin_top5.png" width="90%" alt="Top 5 DEG keman grafikleri"/>
+</p>
+<p align="center"><em>Şekil 8: En güçlü 5 DEG için keman grafikleri</em></p>
+
+<p align="center">
+  <img src="figures/heatmap_deg.png" width="80%" alt="DEG ısı haritası"/>
+</p>
+<p align="center"><em>Şekil 9: En anlamlı diferansiyel ifadeli genlerin ısı haritası</em></p>
+
+### Biyolojik Yorum
+
+Down-regulated genler arasında **HAMP**, **CYP1A2**, **FCN3**, **MT1H** ve **MT1G** öne çıkmaktadır. Bu genler demir dengesi, ilaç metabolizması, bağışıklık yanıtı ve metal detoksifikasyonu gibi karaciğerin normal görevleriyle ilişkilidir. Bu nedenle tümör dokusunda bu genlerin daha düşük ifade göstermesi, normal karaciğer fonksiyonlarının azaldığını düşündürmektedir.
+
+Up-regulated genler arasında ise **GPC3**, **AKR1B10** ve **TOP2A** dikkat çekmektedir. Bu genler hücre çoğalması ve tümör gelişimiyle ilişkili süreçlerde rol oynayabilir. Özellikle GPC3'ün HCC tanısında bilinen bir gen belirteci olması, elde edilen DGE sonuçlarının biyolojik olarak tutarlı olduğunu göstermektedir.
+
+---
+
+## Survival Analizi ve Cox Modeli
+
+### Yöntem
+
+Survival analizi yalnızca tümör örnekleri üzerinde yapılmıştır. Ana değerlendirme ölçütü genel sağkalım (OS) olarak seçilmiştir. Bu analizde 115 tümör örneği kullanılmış ve 23 ölüm olayı bulunmaktadır.
+
+DGE analizinden seçilen en güçlü 5 up-regulated ve 5 down-regulated gen olmak üzere toplam 10 gen incelenmiştir. Her gen için örnekler, gen ifade değerinin medyanına göre yüksek ifade ve düşük ifade gruplarına ayrılmıştır. Bu gruplar Kaplan-Meier eğrileri ve log-rank testi ile karşılaştırılmıştır.
+
+Ek olarak, gen ifade grubu, yaş ve cinsiyet değişkenleri kullanılarak Cox regresyon modeli kurulmuştur. Tekrarsız sağkalım (RFS) ikincil olarak değerlendirilmiş, ancak düzeltilmiş örnek eşleştirmesi sonrasında RFS için anlamlı bir gen bulunmamıştır.
+
+### Sonuçlar
+
+Kaplan-Meier log-rank test sonuçları aşağıda verilmiştir. Üç gen anlamlı bulunmuştur: **MT1G** (p = 0,006), **MT1H** (p = 0,023) ve **AKR1B10** (p = 0,039).
+
+| Gen | Yön | p-değeri |
+|---|---|---|
+| **MT1G** | Down | **0,006** |
+| **MT1H** | Down | **0,023** |
+| **AKR1B10** | Up | **0,039** |
+| FCN3 | Down | 0,087 |
+| GPC3 | Up | 0,633 |
+| SPINK1 | Up | 0,403 |
+| TOP2A | Up | 0,468 |
+| ACSL4 | Up | 0,474 |
+| CYP1A2 | Down | 0,460 |
+| HAMP | Down | 0,680 |
+
+<p align="center">
+  <img src="figures/km_MT1G.png" width="85%" alt="MT1G Kaplan-Meier"/>
+</p>
+<p align="center"><em>Şekil 10: MT1G geni için Kaplan-Meier genel sağkalım (OS) eğrisi</em></p>
+
+<p align="center">
+  <img src="figures/forest_MT1G.png" width="85%" alt="MT1G Cox forest plot"/>
+</p>
+<p align="center"><em>Şekil 11: MT1G geni için Cox regresyon forest plot grafiği</em></p>
+
+### Yorum
+
+Cox modelinde yüksek MT1G ifade grubunun ölüm riski daha yüksek bulunmuştur (HR = 3,35; %95 GA 1,34–8,41; p = 0,010). Benzer şekilde MT1H için de daha yüksek risk gözlenmiştir (HR = 2,65; p = 0,029). AKR1B10 ise koruyucu yönde bir eğilim göstermiştir, ancak bu sonuç sınırda anlamlıdır (HR = 0,41; p = 0,052).
+
+MT1G ve MT1H tümör dokusunda genel olarak daha düşük ifade edilen genlerdir. Buna rağmen, tümör örnekleri içinde bu genlerin daha yüksek ifade edilmesi sağkalım ile ilişkili bulunmuştur. Cox modeline yaş ve cinsiyet dahil edilmiş; olay sayısı düşük olduğu için BCLC evresi modele eklenmemiştir. Metadata'da sigara ve alkol bilgisi bulunmadığından bu değişkenler değerlendirilememiştir.
+
+---
+
+## WGCNA Analizi
+
+### Yöntem
+
+WGCNA, benzer ifade örüntüsüne sahip genleri aynı gruplar altında toplayan bir ağ analizi yöntemidir. Bu analizde Top-3000 yüksek varyanslı gen kullanılmıştır.
+
+Ağ yapısını oluşturmak için önce genler arasındaki ilişki düzeyi hesaplanmıştır. Daha sonra ölçeksiz topolojiye uygunluğu sağlayan Soft Thresholding gücü **β = 5** olarak seçilmiştir. Bu değer kullanılarak genler arasındaki bağlantılar hesaplanmış ve benzer bağlantı yapısına sahip genler modüller halinde gruplandırılmıştır.
+
+<p align="center">
+  <img src="figures/soft_threshold.png" width="90%" alt="Soft threshold"/>
+</p>
+<p align="center"><em>Şekil 12: Soft Threshold güç seçimi: ölçeksiz topoloji uyumu ve ortalama bağlantısallık</em></p>
+
+### Modül Tespiti ve Modül-Trait İlişkisi
+
+Analiz sonucunda **6 gen modülü** belirlenmiştir. Daha sonra bu modüllerin tümör/non-tümör durumu ve klinik değişkenlerle ilişkisi incelenmiştir.
+
+Bu karşılaştırmada **brown modülü** 1636 gen içermekte ve tümör/non-tümör ayrımıyla en güçlü ilişkiyi göstermektedir. Bu nedenle sonraki hub gen ve GO analizlerinde brown modülü seçilmiştir.
+
+<p align="center">
+  <img src="figures/gene_dendrogram.png" width="90%" alt="Gen dendrogramı"/>
+</p>
+<p align="center"><em>Şekil 13: Gen dendrogramı ve modül renkleri</em></p>
+
+<p align="center">
+  <img src="figures/module_trait_heatmap.png" width="75%" alt="Modül-Trait ısı haritası"/>
+</p>
+<p align="center"><em>Şekil 14: Modül-Trait ilişki ısı haritası</em></p>
+
+### Hub Genler
+
+Hub genler, her modül içinde merkeze yakın ve tümör/non-tümör ayrımıyla güçlü ilişki gösteren genler arasından seçilmiştir. Bu seçimde modül üyeliği (kME) ve gen anlamlılığı (GS) değerleri dikkate alınmıştır.
+
+| Gen | kME | GS | Fonksiyon |
+|---|---|---|---|
+| GLYATL1 | 0,92 | 0,70 | Glisin konjugasyonu, karaciğer detoksifikasyonu |
+| TTC36 | 0,92 | 0,82 | p53 stabilizasyonu |
+| PEX11G | 0,90 | 0,69 | Peroksizomal bölünme, lipid metabolizması |
+| AADAT | 0,90 | 0,80 | Kinürenin yolağı, amino asit metabolizması |
+| NAT2 | 0,89 | 0,77 | N-asetiltransferaz, ilaç metabolizması |
+
+<p align="center">
+  <img src="figures/mm_vs_gs_brown.png" width="85%" alt="MM vs GS brown"/>
+</p>
+<p align="center"><em>Şekil 15: Brown modülü için Module Membership (MM) – Gene Significance (GS) dağılımı</em></p>
+
+<p align="center">
+  <img src="figures/network_brown_module.png" width="90%" alt="Brown modülü ağı"/>
+</p>
+<p align="center"><em>Şekil 16: Brown modülü hub gen merkezli co-expression ağı</em></p>
+
+---
+
+## GO Enrichment Analizi
+
+### Yöntem
+
+Brown modülünde yer alan 1636 gen için GO enrichment analizi yapılmıştır. Bu analizde, genlerin hangi biyolojik süreçlerle daha fazla ilişkili olduğunu belirlemek amaçlanmıştır.
+
+Analiz sonucunda elde edilen p-değerleri Benjamini-Hochberg yöntemi ile düzeltilmiş ve anlamlı GO terimleri belirlenmiştir.
+
+### Sonuçlar
+
+Brown modülü için **752 anlamlı Biyolojik Süreç terimi** tespit edilmiştir. En anlamlı terimler:
+
+| GO Terimi | p.adjust | Gen Sayısı |
+|---|---|---|
+| Small molecule catabolic process | 3,85×10⁻⁵⁴ | 138 |
+| Organic acid catabolic process | 8,60×10⁻⁵⁰ | 108 |
+| Carboxylic acid catabolic process | 8,60×10⁻⁵⁰ | 108 |
+| Alpha-amino acid metabolic process | 4,60×10⁻³⁶ | 84 |
+| Organic acid biosynthetic process | 8,77×10⁻³⁶ | 108 |
+| Amino acid metabolic process | 4,44×10⁻³² | 95 |
+| Fatty acid metabolic process | 7,55×10⁻³⁰ | 110 |
+
+<p align="center">
+  <img src="figures/go_barplot.png" width="90%" alt="GO bar grafiği"/>
+</p>
+<p align="center"><em>Şekil 17: GO Biyolojik Süreç bar grafiği</em></p>
+
+<p align="center">
+  <img src="figures/go_dotplot.png" width="90%" alt="GO nokta grafiği"/>
+</p>
+<p align="center"><em>Şekil 18: GO Biyolojik Süreç nokta grafiği</em></p>
+
+### Biyolojik Yorum
+
+En anlamlı GO terimleri küçük molekül yıkımı, amino asit metabolizması ve yağ asidi metabolizması ile ilişkilidir. Bu süreçler karaciğerin temel görevleri arasında yer almaktadır.
+
+Brown modülünün tümör örnekleriyle negatif ilişki göstermesi, HCC dokusunda normal karaciğer metabolizmasıyla ilişkili genlerin daha düşük ifade edildiğini düşündürmektedir. Bu sonuç, tümör dokusunda metabolik kapasitenin azalabileceği yorumunu desteklemektedir.
+
+---
+
+## Makine Öğrenmesi ile Sınıflandırma
+
+### Özellik Seçimi/Çıkarımı Setup'ları
+
+Tümör/non-tümör sınıflandırması için üç farklı özellik stratejisi karşılaştırılmıştır:
+
+| Özellik Seti | Özellik Sayısı | Yöntem |
+|---|---|---|
+| Biyolojik | 742 gen | DGE sonucunda bulunan anlamlı genler ve WGCNA hub genleri |
+| İstatistiksel | 446 gen | Yüksek varyanslı ve birbirine çok benzemeyen genler |
+| PCA | 35 bileşen | Gen ifade verilerinin PCA ile özetlenmiş hali (%80 varyans) |
+
+### Modeller ve Değerlendirme
+
+Üç farklı eğiticili makine öğrenmesi modeli kullanılmıştır: **SVM**, **Random Forest** ve **XGBoost**. Modeller, çapraz doğrulama ile değerlendirilmiştir. Bu yöntemde aynı hastaya ait tümör ve non-tümör örnekleri aynı katta tutulmuş, böylece aynı hastadan gelen örneklerin hem eğitim hem test verisine düşmesi engellenmiştir.
+
+Sınıflandırmada pozitif sınıf Tümör olarak belirlenmiştir. PCA kullanılan Setup-3'te, boyut indirgeme işlemi her çapraz doğrulama katında yalnızca eğitim verisi üzerinde öğrenilmiştir. Böylece test verisinden modele bilgi sızması önlenmiştir.
+
+### Sonuçlar
+
+Tüm modeller **%93 üzeri accuracy** ve **0,95 üzeri AUC** değeri elde etmiştir.
+
+| Özellik Seti | Model | Acc | Prec | Recall | F1 | AUC |
+|---|---|---|---|---|---|---|
+| Biyolojik | SVM | 0,946 | 0,965 | 0,957 | 0,961 | 0,975 |
+| Biyolojik | Random Forest | **0,958** | 0,974 | 0,965 | 0,969 | 0,980 |
+| Biyolojik | XGBoost | 0,952 | 0,965 | 0,965 | 0,965 | 0,973 |
+| İstatistiksel | SVM | 0,946 | 0,965 | 0,957 | 0,961 | 0,962 |
+| İstatistiksel | Random Forest | **0,958** | 0,966 | **0,974** | **0,970** | **0,981** |
+| İstatistiksel | XGBoost | 0,946 | 0,957 | 0,965 | 0,961 | 0,968 |
+| PCA | SVM | **0,958** | **0,982** | 0,957 | 0,969 | 0,967 |
+| PCA | Random Forest | 0,934 | 0,956 | 0,948 | 0,952 | 0,973 |
+| PCA | XGBoost | 0,934 | 0,956 | 0,948 | 0,952 | 0,959 |
+
+### ROC Eğrileri
+
+<p align="center">
+  <img src="figures/roc_curves_Setup1_Biological.png" width="80%" alt="Biyolojik ROC"/>
+</p>
+<p align="center"><em>Şekil 19: Biyolojik özellik seti ROC eğrileri</em></p>
+
+<p align="center">
+  <img src="figures/roc_curves_Setup2_Statistical.png" width="80%" alt="İstatistiksel ROC"/>
+</p>
+<p align="center"><em>Şekil 20: İstatistiksel özellik seti ROC eğrileri</em></p>
+
+<p align="center">
+  <img src="figures/roc_curves_Setup3_PCA.png" width="80%" alt="PCA ROC"/>
+</p>
+<p align="center"><em>Şekil 21: PCA özellik seti ROC eğrileri</em></p>
+
+### Karışıklık Matrisleri
+
+<p align="center">
+  <img src="figures/confusion_matrix_Setup1_Biological_RF.png" width="32%" alt="Biyolojik RF CM"/>
+  <img src="figures/confusion_matrix_Setup2_Statistical_RF.png" width="32%" alt="İstatistiksel RF CM"/>
+  <img src="figures/confusion_matrix_Setup3_PCA_RF.png" width="32%" alt="PCA RF CM"/>
+</p>
+<p align="center"><em>Şekil 22: Random Forest karışıklık matrisleri (sırasıyla Biyolojik, İstatistiksel, PCA)</em></p>
+
+### Karşılaştırma ve Yorum
+
+Biyolojik ve istatistiksel özellik setleri benzer performans göstermiştir. Bu sonuç, DGE ve WGCNA analizleriyle seçilen genlerin tümör/non-tümör ayrımında yararlı bilgiler taşıdığını göstermektedir. PCA tabanlı özellik seti de daha az sayıda bileşen kullanmasına rağmen başarılı sonuçlar vermiştir.
+
+Modeller arasında Random Forest, tüm özellik setlerinde yüksek ve tutarlı AUC değerleri elde etmiştir. En yüksek AUC değeri, istatistiksel özellik seti ile Random Forest modelinde elde edilmiştir (**AUC = 0,981**).
+
+Değerlendirmede hasta-bazlı çapraz doğrulama kullanıldığı için aynı hastaya ait örneklerin
